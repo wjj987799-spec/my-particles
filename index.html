@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手势粒子</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        canvas { display: block; }
+        #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px; color: white; border: 1px solid white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="startBtn">点击启动摄像头</div>
+    <canvas id="canvas"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particles = [];
+        let finger = { x: 0, y: 0 };
+
+        class Particle {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 4 + 1;
+                this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                let dx = finger.x - this.x;
+                let dy = finger.y - this.y;
+                if (Math.sqrt(dx*dx + dy*dy) < 100) {
+                    this.x += dx * 0.1;
+                    this.y += dy * 0.1;
+                }
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 150; i++) particles.push(new Particle());
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => { p.update(); p.draw(); });
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        document.getElementById('startBtn').onclick = async () => {
+            document.getElementById('startBtn').style.display = 'none';
+            // 此处连接 MediaPipe 摄像头逻辑
+            alert("摄像头已激活，请开始手势操作");
+        };
+    </script>
+</body>
+</html>
