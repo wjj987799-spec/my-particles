@@ -2,16 +2,17 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>手势粒子交互</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
         canvas { display: block; }
-        #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; color: white; border: 2px solid white; cursor: pointer; font-size: 20px; border-radius: 10px; }
+        #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; color: white; border: 2px solid white; cursor: pointer; font-size: 20px; border-radius: 10px; z-index: 1000; }
+        #debugVideo { position: fixed; top: 0; left: 0; width: 120px; z-index: 999; border: 2px solid #fff; opacity: 0.8; }
     </style>
 </head>
 <body>
-    <div id="startBtn">启动摄像头</div>
+    <div id="startBtn">启动手势交互</div>
     <canvas id="canvas"></canvas>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
@@ -24,7 +25,7 @@
         canvas.height = window.innerHeight;
 
         let particles = [];
-        let finger = { x: -500, y: -500 }; // 初始放在屏幕外
+        let finger = { x: -999, y: -999 };
 
         class Particle {
             constructor() { this.reset(); }
@@ -38,9 +39,13 @@
             }
             update() {
                 this.x += this.vx; this.y += this.vy;
-                let dx = finger.x - this.x; let dy = finger.y - this.y;
-                if (Math.sqrt(dx*dx + dy*dy) < 150) { // 磁场半径
-                    this.x += dx * 0.05; this.y += dy * 0.05;
+                // 粒子跟随逻辑
+                let dx = finger.x - this.x;
+                let dy = finger.y - this.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 200) {
+                    this.x += dx * 0.08;
+                    this.y += dy * 0.08;
                 }
                 if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
                 if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
@@ -63,20 +68,23 @@
         }
         animate();
 
-        // 手势识别逻辑
+        // MediaPipe 初始化
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
         hands.onResults(results => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const indexFinger = results.multiHandLandmarks[0][8]; // 食指尖
-                finger.x = indexFinger.x * canvas.width;
-                finger.y = indexFinger.y * canvas.height;
+                const landmark = results.multiHandLandmarks[0][8]; // 食指尖
+                finger.x = landmark.x * canvas.width;
+                finger.y = landmark.y * canvas.height;
             }
         });
 
         document.getElementById('startBtn').onclick = async () => {
             document.getElementById('startBtn').style.display = 'none';
             const video = document.createElement('video');
+            video.id = "debugVideo";
+            document.body.appendChild(video);
+
             const camera = new Camera(video, {
                 onFrame: async () => { await hands.send({image: video}); },
                 width: 640, height: 480
