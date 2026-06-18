@@ -7,89 +7,41 @@
     <style>
         body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
         canvas { display: block; }
-        #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; color: white; border: 2px solid white; cursor: pointer; font-size: 20px; border-radius: 10px; z-index: 1000; }
-        #debugVideo { position: fixed; top: 0; left: 0; width: 120px; z-index: 999; border: 2px solid #fff; opacity: 0.8; }
+        #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; color: #fff; background: rgba(255,255,255,0.1); border: 1px solid #fff; cursor: pointer; border-radius: 8px; font-size: 18px; z-index: 1000; }
     </style>
 </head>
 <body>
-    <div id="startBtn">启动手势交互</div>
+    <div id="startBtn">点击启动手势控制</div>
     <canvas id="canvas"></canvas>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-
-        let particles = [];
-        let finger = { x: -999, y: -999 };
+        const canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let particles = [], finger = { x: -999, y: -999 };
 
         class Particle {
             constructor() { this.reset(); }
-            reset() {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.size = Math.random() * 4 + 1;
-                this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
-                this.vx = (Math.random() - 0.5) * 2;
-                this.vy = (Math.random() - 0.5) * 2;
-            }
-            update() {
-                this.x += this.vx; this.y += this.vy;
-                // 粒子跟随逻辑
-                let dx = finger.x - this.x;
-                let dy = finger.y - this.y;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 200) {
-                    this.x += dx * 0.08;
-                    this.y += dy * 0.08;
-                }
-                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-            }
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            reset() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.size = Math.random()*4+1; this.color = `hsl(${Math.random()*360},70%,60%)`; this.vx = (Math.random()-0.5)*2; this.vy = (Math.random()-0.5)*2; }
+            update() { this.x += this.vx; this.y += this.vy; let dx = finger.x-this.x, dy = finger.y-this.y; if(Math.sqrt(dx*dx+dy*dy)<200) { this.x += dx*0.08; this.y += dy*0.08; } if(this.x<0||this.x>canvas.width) this.vx*=-1; if(this.y<0||this.y>canvas.height) this.vy*=-1; }
+            draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill(); }
         }
-
-        for (let i = 0; i < 200; i++) particles.push(new Particle());
-
-        function animate() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            particles.forEach(p => { p.update(); p.draw(); });
-            requestAnimationFrame(animate);
-        }
+        for(let i=0; i<150; i++) particles.push(new Particle());
+        function animate() { ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.update(); p.draw();}); requestAnimationFrame(animate); }
         animate();
 
-        // MediaPipe 初始化
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        const hands = new Hands({locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
-        hands.onResults(results => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmark = results.multiHandLandmarks[0][8]; // 食指尖
-                finger.x = landmark.x * canvas.width;
-                finger.y = landmark.y * canvas.height;
-            }
-        });
+        hands.onResults(res => { if(res.multiHandLandmarks?.length) { finger.x = res.multiHandLandmarks[0][8].x * canvas.width; finger.y = res.multiHandLandmarks[0][8].y * canvas.height; } });
 
         document.getElementById('startBtn').onclick = async () => {
-            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('startBtn').innerText = "加载中...";
             const video = document.createElement('video');
-            video.id = "debugVideo";
-            document.body.appendChild(video);
-
-            const camera = new Camera(video, {
-                onFrame: async () => { await hands.send({image: video}); },
-                width: 640, height: 480
-            });
+            const camera = new Camera(video, { onFrame: async () => await hands.send({image: video}), width: 640, height: 480 });
             await camera.start();
+            document.getElementById('startBtn').style.display = 'none';
         };
     </script>
 </body>
